@@ -11,6 +11,8 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -56,6 +58,11 @@ fun ExcelFilePicker(viewModel: ExcelViewModel, onFileSelected: (Uri?) -> Unit) {
     val progress by viewModel.progress.observeAsState(0)
     val data by viewModel.data.observeAsState(emptyList())
     val conversionStarted = remember { mutableStateOf(false) }
+
+    val animatedProgress by animateFloatAsState(
+        targetValue = progress / 100f,
+        animationSpec = tween(durationMillis = 500), label = ""
+    )
 
     val excelMimeTypes = arrayOf(
         "application/vnd.ms-excel",
@@ -104,9 +111,9 @@ fun ExcelFilePicker(viewModel: ExcelViewModel, onFileSelected: (Uri?) -> Unit) {
             CircularProgressIndicator()
         } else if (progress in 1..99) {
             LinearProgressIndicator(
-                progress = { progress / 100f },
+                progress = { animatedProgress },
             )
-            Text(text = "$progress%")
+            Text(text = "${(animatedProgress * 100).toInt()}%")
         }
 
         LazyColumn {
