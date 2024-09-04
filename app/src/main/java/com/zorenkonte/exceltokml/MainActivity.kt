@@ -54,6 +54,7 @@ fun ExcelFilePicker(viewModel: ExcelViewModel, onFileSelected: (Uri?) -> Unit) {
     val showDialog = remember { mutableStateOf(false) }
     val progress by viewModel.progress.observeAsState(0)
     val data by viewModel.data.observeAsState(emptyList())
+    val conversionStarted = remember { mutableStateOf(false) }
 
     val excelMimeTypes = arrayOf(
         "application/vnd.ms-excel",
@@ -65,6 +66,7 @@ fun ExcelFilePicker(viewModel: ExcelViewModel, onFileSelected: (Uri?) -> Unit) {
     ) { uri: Uri? ->
         if (uri != null) {
             viewModel.readExcelFile(context, uri)
+            conversionStarted.value = true
         }
         onFileSelected(uri)
     }
@@ -82,6 +84,7 @@ fun ExcelFilePicker(viewModel: ExcelViewModel, onFileSelected: (Uri?) -> Unit) {
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
         Button(onClick = {
             viewModel.resetProgress()
+            conversionStarted.value = false
             val permission = getRequiredPermission()
             when (PackageManager.PERMISSION_GRANTED) {
                 ContextCompat.checkSelfPermission(context, permission) -> {
@@ -96,11 +99,19 @@ fun ExcelFilePicker(viewModel: ExcelViewModel, onFileSelected: (Uri?) -> Unit) {
             Text(text = "Convert")
         }
 
-        if (progress > 0) {
+        if (conversionStarted.value && progress == 0) {
+            CircularProgressIndicator()
+        } else if (progress > 0) {
             LinearProgressIndicator(
                 progress = { progress / 100f },
             )
             Text(text = "$progress%")
+        }
+
+        LazyColumn {
+            items(data) { row ->
+                Text(text = row.joinToString(", "))
+            }
         }
 
         if (showDialog.value) {
