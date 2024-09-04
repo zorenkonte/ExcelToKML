@@ -8,6 +8,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import org.apache.poi.ss.usermodel.DataFormatter
 import org.apache.poi.ss.usermodel.WorkbookFactory
 import java.io.BufferedInputStream
 import java.io.InputStream
@@ -24,6 +25,7 @@ class ExcelViewModel : ViewModel() {
             val contentResolver = context.contentResolver
             val inputStream: InputStream? = contentResolver.openInputStream(uri)
             val data = mutableListOf<List<String>>()
+            val formatter = DataFormatter()
 
             inputStream.use { stream ->
                 val bufferedStream = BufferedInputStream(stream)
@@ -33,7 +35,7 @@ class ExcelViewModel : ViewModel() {
                 for ((rowIndex, row) in sheet.withIndex()) {
                     val rowData = mutableListOf<String>()
                     for (cell in row) {
-                        rowData.add(cell.toString())
+                        rowData.add(formatter.formatCellValue(cell))
                     }
                     data.add(rowData)
                     _progress.postValue((rowIndex + 1) * 100 / totalRows)
