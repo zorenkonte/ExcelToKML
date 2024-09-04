@@ -20,6 +20,7 @@ import androidx.compose.runtime.livedata.observeAsState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import com.zorenkonte.exceltokml.ui.theme.ExcelToKMLTheme
 
@@ -101,7 +102,7 @@ fun ExcelFilePicker(viewModel: ExcelViewModel, onFileSelected: (Uri?) -> Unit) {
 
         if (conversionStarted.value && progress == 0) {
             CircularProgressIndicator()
-        } else if (progress > 0) {
+        } else if (progress in 1..99) {
             LinearProgressIndicator(
                 progress = { progress / 100f },
             )
@@ -110,7 +111,20 @@ fun ExcelFilePicker(viewModel: ExcelViewModel, onFileSelected: (Uri?) -> Unit) {
 
         LazyColumn {
             items(data) { row ->
-                Text(text = row.joinToString(", "))
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(8.dp),
+                    elevation = CardDefaults.cardElevation(2.dp)
+                ) {
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        Text(text = "CAN: ${row[0]}")
+                        Text(text = "Name: ${row[4]}")
+                        Text(text = "Address: ${row[5]}")
+                        Text(text = "Street: ${row[6]}")
+                        Text(text = "Location: ${row[9]}, ${row[10]}")
+                    }
+                }
             }
         }
 
