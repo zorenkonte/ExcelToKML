@@ -10,16 +10,13 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
+import androidx.activity.viewModels
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.runtime.livedata.observeAsState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -27,6 +24,8 @@ import androidx.core.content.ContextCompat
 import com.zorenkonte.exceltokml.ui.theme.ExcelToKMLTheme
 
 class MainActivity : ComponentActivity() {
+    private val excelViewModel: ExcelViewModel by viewModels()
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
@@ -39,7 +38,7 @@ class MainActivity : ComponentActivity() {
                             .fillMaxSize()
                             .padding(innerPadding)
                     ) {
-                        ExcelFilePicker { uri ->
+                        ExcelFilePicker(excelViewModel) { uri ->
                             println(uri)
                         }
                     }
@@ -50,9 +49,11 @@ class MainActivity : ComponentActivity() {
 }
 
 @Composable
-fun ExcelFilePicker(onFileSelected: (Uri?) -> Unit) {
+fun ExcelFilePicker(viewModel: ExcelViewModel, onFileSelected: (Uri?) -> Unit) {
     val context = LocalContext.current
     val showDialog = remember { mutableStateOf(false) }
+    val progress by viewModel.progress.observeAsState(0)
+    val data by viewModel.data.observeAsState(emptyList())
 
     val excelMimeTypes = arrayOf(
         "application/vnd.ms-excel",
@@ -62,6 +63,9 @@ fun ExcelFilePicker(onFileSelected: (Uri?) -> Unit) {
     val filePickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.OpenDocument()
     ) { uri: Uri? ->
+        if (uri != null) {
+            viewModel.readExcelFile(context, uri)
+        }
         onFileSelected(uri)
     }
 
@@ -75,32 +79,42 @@ fun ExcelFilePicker(onFileSelected: (Uri?) -> Unit) {
         }
     }
 
-    Button(onClick = {
-        val permission = getRequiredPermission()
-        when (PackageManager.PERMISSION_GRANTED) {
-            ContextCompat.checkSelfPermission(context, permission) -> {
-                filePickerLauncher.launch(excelMimeTypes)
-            }
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        Button(onClick = {
+            viewModel.resetProgress()
+            val permission = getRequiredPermission()
+            when (PackageManager.PERMISSION_GRANTED) {
+                ContextCompat.checkSelfPermission(context, permission) -> {
+                    filePickerLauncher.launch(excelMimeTypes)
+                }
 
-            else -> {
-                permissionLauncher.launch(permission)
-            }
-        }
-    }) {
-        Text(text = "Convert")
-    }
-
-    if (showDialog.value) {
-        AlertDialog(
-            onDismissRequest = { showDialog.value = false },
-            title = { Text(text = "Permission Denied") },
-            text = { Text(text = "Permission to read external storage is required to select an Excel file.") },
-            confirmButton = {
-                Button(onClick = { showDialog.value = false }) {
-                    Text("OK")
+                else -> {
+                    permissionLauncher.launch(permission)
                 }
             }
-        )
+        }) {
+            Text(text = "Convert")
+        }
+
+        if (progress > 0) {
+            LinearProgressIndicator(
+                progress = { progress / 100f },
+            )
+            Text(text = "$progress%")
+        }
+
+        if (showDialog.value) {
+            AlertDialog(
+                onDismissRequest = { showDialog.value = false },
+                title = { Text(text = "Permission Denied") },
+                text = { Text(text = "Permission to read external storage is required to select an Excel file.") },
+                confirmButton = {
+                    Button(onClick = { showDialog.value = false }) {
+                        Text("OK")
+                    }
+                }
+            )
+        }
     }
 }
 
