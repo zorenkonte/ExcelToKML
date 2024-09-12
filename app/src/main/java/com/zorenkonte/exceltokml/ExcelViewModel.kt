@@ -2,6 +2,7 @@ package com.zorenkonte.exceltokml
 
 import android.content.Context
 import android.net.Uri
+import androidx.core.content.FileProvider
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
@@ -11,6 +12,8 @@ import kotlinx.coroutines.launch
 import org.apache.poi.ss.usermodel.DataFormatter
 import org.apache.poi.ss.usermodel.WorkbookFactory
 import java.io.BufferedInputStream
+import java.io.File
+import java.io.FileOutputStream
 import java.io.InputStream
 
 class ExcelViewModel : ViewModel() {
@@ -48,5 +51,33 @@ class ExcelViewModel : ViewModel() {
 
     fun resetProgress() {
         _progress.value = 0
+    }
+
+    fun convertToKML(data: List<List<String>>, context: Context): Uri? {
+        val kmlContent = buildString {
+            append("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n")
+            append("<kml xmlns=\"http://www.opengis.net/kml/2.2\">\n")
+            append("<Document>\n")
+            data.forEach { row ->
+                append("<Placemark>\n")
+                append("<name>${row[4]}</name>\n") // Name
+                append("<description>${row[5]}, ${row[6]}</description>\n") // Address, Street
+                append("<Point>\n")
+                append("<coordinates>${row[10]},${row[9]}</coordinates>\n") // Longitude, Latitude
+                append("</Point>\n")
+                append("</Placemark>\n")
+            }
+            append("</Document>\n")
+            append("</kml>\n")
+        }
+
+        return try {
+            val file = File(context.cacheDir, "output.kml")
+            FileOutputStream(file).use { it.write(kmlContent.toByteArray()) }
+            FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
+        } catch (e: Exception) {
+            e.printStackTrace()
+            null
+        }
     }
 }
