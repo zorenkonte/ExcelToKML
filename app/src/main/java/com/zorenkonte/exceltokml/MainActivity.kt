@@ -19,6 +19,9 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.livedata.observeAsState
@@ -275,26 +278,40 @@ fun DrawerContent(
     drawerState: DrawerState,
     scope: CoroutineScope
 ) {
+    var currentRoute by remember { mutableStateOf<String?>(null) }
+
+    LaunchedEffect(navController) {
+        navController.currentBackStackEntryFlow.collect { backStackEntry ->
+            currentRoute = backStackEntry.destination.route
+        }
+    }
+
     ModalDrawerSheet {
-        NavigationDrawerItem(
-            label = { Text("Home") },
-            selected = false,
-            onClick = {
-                scope.launch { drawerState.close() }
-                navController.navigate("home")
-            }
-        )
-        NavigationDrawerItem(
-            label = { Text("Credits") },
-            selected = false,
-            onClick = {
-                scope.launch { drawerState.close() }
-                navController.navigate("credits")
-            }
-        )
+        Column(modifier = Modifier.padding(start = 16.dp, end = 16.dp)) {
+            NavigationDrawerItem(
+                icon = { Icon(Icons.Default.Home, contentDescription = null) },
+                label = { Text("Home", fontSize = 18.sp, fontWeight = FontWeight.Medium) },
+                selected = currentRoute == "home",
+                onClick = {
+                    scope.launch { drawerState.close() }
+                    navController.navigate("home")
+                }
+            )
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            NavigationDrawerItem(
+                icon = { Icon(Icons.Default.Info, contentDescription = null) },
+                label = { Text("Credits", fontSize = 18.sp, fontWeight = FontWeight.Medium) },
+                selected = currentRoute == "credits",
+                onClick = {
+                    scope.launch { drawerState.close() }
+                    navController.navigate("credits")
+                }
+            )
+        }
     }
 }
-
 
 @Composable
 fun CreditsScreen() {
