@@ -17,9 +17,13 @@ import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.AlertDialog
@@ -38,7 +42,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import com.zorenkonte.exceltokml.ui.theme.ExcelToKMLTheme
 
@@ -76,8 +82,7 @@ fun ExcelFilePicker(viewModel: ExcelViewModel, onFileSelected: (Uri?) -> Unit) {
     val conversionStarted = remember { mutableStateOf(false) }
 
     val animatedProgress by animateFloatAsState(
-        targetValue = progress / 100f,
-        animationSpec = tween(durationMillis = 500), label = ""
+        targetValue = progress / 100f, animationSpec = tween(durationMillis = 500), label = ""
     )
 
     val excelMimeTypes = arrayOf(
@@ -106,30 +111,66 @@ fun ExcelFilePicker(viewModel: ExcelViewModel, onFileSelected: (Uri?) -> Unit) {
     }
 
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        Button(onClick = {
-            viewModel.resetProgress()
-            conversionStarted.value = false
-            val permission = getRequiredPermission()
-            when (PackageManager.PERMISSION_GRANTED) {
-                ContextCompat.checkSelfPermission(context, permission) -> {
-                    filePickerLauncher.launch(excelMimeTypes)
-                }
-
-                else -> {
-                    permissionLauncher.launch(permission)
-                }
-            }
-        }) {
-            Text(text = "Convert")
-        }
-
         if (conversionStarted.value && progress == 0) {
             CircularProgressIndicator()
+            Spacer(modifier = Modifier.height(8.dp))
         } else if (progress in 1..99) {
             LinearProgressIndicator(
                 progress = { animatedProgress },
             )
-            Text(text = "${(animatedProgress * 100).toInt()}%")
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(
+                text = "${(animatedProgress * 100).toInt()}%",
+                fontSize = 28.sp,
+                fontWeight = FontWeight(500)
+            )
+        }
+
+        Row(
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            if ((!conversionStarted.value && progress == 0) || progress == 100) {
+                Button(onClick = {
+                    viewModel.resetProgress()
+                    conversionStarted.value = false
+                    val permission = getRequiredPermission()
+                    when (PackageManager.PERMISSION_GRANTED) {
+                        ContextCompat.checkSelfPermission(context, permission) -> {
+                            filePickerLauncher.launch(excelMimeTypes)
+                        }
+
+                        else -> {
+                            permissionLauncher.launch(permission)
+                        }
+                    }
+                }) {
+                    Text(text = if (data.isNotEmpty()) "Convert Again" else "Convert")
+                }
+            }
+
+            if (data.isNotEmpty() && !(conversionStarted.value && progress == 0) && progress !in 1..99) {
+                Spacer(modifier = Modifier.width(16.dp))
+                Button(onClick = {
+                    val kmlUri = viewModel.convertToKML(data, context)
+                    kmlUri?.let {
+                        val intent = Intent(Intent.ACTION_VIEW).apply {
+                            setDataAndType(it, "application/*")
+                            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                        }
+                        val chooser = Intent.createChooser(intent, "Open KML file with")
+                        if (intent.resolveActivity(context.packageManager) != null) {
+                            context.startActivity(chooser)
+                        } else {
+                            // Handle the case where no application can handle the intent
+                            Toast.makeText(
+                                context, "No application found to open KML file", Toast.LENGTH_SHORT
+                            ).show()
+                        }
+                    }
+                }) {
+                    Text(text = "Open KML")
+                }
+            }
         }
 
         LazyColumn {
@@ -152,39 +193,14 @@ fun ExcelFilePicker(viewModel: ExcelViewModel, onFileSelected: (Uri?) -> Unit) {
         }
 
         if (showDialog.value) {
-            AlertDialog(
-                onDismissRequest = { showDialog.value = false },
+            AlertDialog(onDismissRequest = { showDialog.value = false },
                 title = { Text(text = "Permission Denied") },
                 text = { Text(text = "Permission to read external storage is required to select an Excel file.") },
                 confirmButton = {
                     Button(onClick = { showDialog.value = false }) {
                         Text("OK")
                     }
-                }
-            )
-        }
-
-        Button(onClick = {
-            val kmlUri = viewModel.convertToKML(data, context)
-            kmlUri?.let {
-                val intent = Intent(Intent.ACTION_VIEW).apply {
-                    setDataAndType(it, "application/*")
-                    addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                }
-                val chooser = Intent.createChooser(intent, "Open KML file with")
-                if (intent.resolveActivity(context.packageManager) != null) {
-                    context.startActivity(chooser)
-                } else {
-                    // Handle the case where no application can handle the intent
-                    Toast.makeText(
-                        context,
-                        "No application found to open KML file",
-                        Toast.LENGTH_SHORT
-                    ).show()
-                }
-            }
-        }) {
-            Text(text = "Open KML")
+                })
         }
     }
 }
