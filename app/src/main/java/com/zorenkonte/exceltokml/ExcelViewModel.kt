@@ -34,8 +34,8 @@ class ExcelViewModel : ViewModel() {
                 val bufferedStream = BufferedInputStream(stream)
                 val workbook = WorkbookFactory.create(bufferedStream)
                 val sheet = workbook.getSheetAt(0)
-                val totalRows = sheet.physicalNumberOfRows
-                for ((rowIndex, row) in sheet.withIndex()) {
+                val totalRows = sheet.physicalNumberOfRows - 1
+                for ((rowIndex, row) in sheet.drop(1).withIndex()) {
                     val rowData = mutableListOf<String>()
                     for (cell in row) {
                         rowData.add(formatter.formatCellValue(cell))
@@ -58,7 +58,7 @@ class ExcelViewModel : ViewModel() {
             append("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n")
             append("<kml xmlns=\"http://www.opengis.net/kml/2.2\">\n")
             append("<Document>\n")
-            data.forEach { row ->
+            data.drop(1).forEach { row ->
                 append("<Placemark>\n")
                 append("<name>${row[4]}</name>\n") // Name
                 append("<description>${row[5]}, ${row[6]}</description>\n") // Address, Street
