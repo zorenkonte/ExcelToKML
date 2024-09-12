@@ -59,13 +59,7 @@ class ExcelViewModel : ViewModel() {
             append("<kml xmlns=\"http://www.opengis.net/kml/2.2\">\n")
             append("<Document>\n")
             data.drop(1).forEach { row ->
-                append("<Placemark>\n")
-                append("<name>${row[4]}</name>\n") // Name
-                append("<description>${row[5]}, ${row[6]}</description>\n") // Address, Street
-                append("<Point>\n")
-                append("<coordinates>${row[10]},${row[9]}</coordinates>\n") // Longitude, Latitude
-                append("</Point>\n")
-                append("</Placemark>\n")
+                append(createPlaceMark(row))
             }
             append("</Document>\n")
             append("</kml>\n")
@@ -79,5 +73,35 @@ class ExcelViewModel : ViewModel() {
             e.printStackTrace()
             null
         }
+    }
+
+    private fun createPlaceMark(row: List<String>): String {
+        val placeMark = """
+                    <Placemark>
+                        <name>${row[0]}</name>
+                        <description>
+                        <![CDATA[
+                            <p>
+                               CAN: ${row[0]} <br/>
+                               Meter Code: ${row[1]} <br/>
+                               MRU: ${row[2]} <br/>
+                               BA: ${row[3]} <br/>
+                               Name: ${row[4]} <br/>
+                               Address: ${row[5]} <br/>
+                               DMA: ${row[6]} <br/>
+                               DMZ: ${row[7]} <br/>
+                               Latitude: ${row[9]} <br/>
+                               Longitude: ${row[10]} <br/>
+                               Coordinates Source: ${row[11]} <br>
+                            </p>
+                        ]]>
+                        </description>
+                        <Point>
+                            <coordinates>${row[10]},${row[9]}</coordinates>
+                        </Point>
+                    </Placemark>
+        """.trimIndent()
+
+        return placeMark
     }
 }

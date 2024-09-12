@@ -186,7 +186,7 @@ fun ExcelFilePicker(viewModel: ExcelViewModel, onFileSelected: (Uri?) -> Unit) {
                         Text(text = "Name: ${row[4]}")
                         Text(text = "Address: ${row[5]}")
                         Text(text = "Street: ${row[6]}")
-                        Text(text = "Location: ${row[9]}, ${row[10]}")
+                        Text(text = "Location: ${row[10]}, ${row[9]}")
                     }
                 }
             }
