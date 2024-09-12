@@ -25,28 +25,27 @@ class ExcelViewModel : ViewModel() {
 
     fun readExcelFile(context: Context, uri: Uri) {
         viewModelScope.launch(Dispatchers.IO) {
-            val contentResolver = context.contentResolver
-            val inputStream: InputStream? = contentResolver.openInputStream(uri)
-            val data = mutableListOf<List<String>>()
+            val inputStream: InputStream? = context.contentResolver.openInputStream(uri)
             val formatter = DataFormatter()
+            val rows = mutableListOf<List<String>>()
 
             inputStream.use { stream ->
                 val bufferedStream = BufferedInputStream(stream)
-                val workbook = WorkbookFactory.create(bufferedStream)
-                val sheet = workbook.getSheetAt(0)
+                val sheet = WorkbookFactory.create(bufferedStream).getSheetAt(0)
                 val totalRows = sheet.physicalNumberOfRows - 1
-                for ((rowIndex, row) in sheet.drop(1).withIndex()) {
-                    val rowData = mutableListOf<String>()
-                    for (cell in row) {
-                        rowData.add(formatter.formatCellValue(cell))
-                    }
-                    data.add(rowData)
-                    _progress.postValue((rowIndex + 1) * 100 / totalRows)
+
+                sheet.drop(1).forEachIndexed { rowIndex, row ->
+                    rows.add(row.map { formatter.formatCellValue(it) })
+                    updateProgress(rowIndex, totalRows)
                 }
             }
 
-            _data.postValue(data)
+            _data.postValue(rows)
         }
+    }
+
+    private fun updateProgress(rowIndex: Int, totalRows: Int) {
+        _progress.postValue((rowIndex + 1) * 100 / totalRows)
     }
 
     fun resetProgress() {
@@ -54,17 +53,20 @@ class ExcelViewModel : ViewModel() {
     }
 
     fun convertToKML(data: List<List<String>>, context: Context): Uri? {
-        val kmlContent = buildString {
-            append("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n")
-            append("<kml xmlns=\"http://www.opengis.net/kml/2.2\">\n")
-            append("<Document>\n")
-            data.drop(1).forEach { row ->
-                append(createPlaceMark(row))
-            }
-            append("</Document>\n")
-            append("</kml>\n")
-        }
+        val kmlContent = buildKML(data)
+        return saveKMLFile(kmlContent, context)
+    }
 
+    private fun buildKML(data: List<List<String>>): String {
+        return buildString {
+            append("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n")
+            append("<kml xmlns=\"http://www.opengis.net/kml/2.2\">\n<Document>\n")
+            data.drop(1).forEach { append(createPlaceMark(it)) }
+            append("</Document>\n</kml>\n")
+        }
+    }
+
+    private fun saveKMLFile(kmlContent: String, context: Context): Uri? {
         return try {
             val file = File(context.cacheDir, "output.kml")
             FileOutputStream(file).use { it.write(kmlContent.toByteArray()) }
@@ -76,32 +78,24 @@ class ExcelViewModel : ViewModel() {
     }
 
     private fun createPlaceMark(row: List<String>): String {
-        val placeMark = """
-                    <Placemark>
-                        <name>${row[0]}</name>
-                        <description>
-                        <![CDATA[
-                            <p>
-                               CAN: ${row[0]} <br/>
-                               Meter Code: ${row[1]} <br/>
-                               MRU: ${row[2]} <br/>
-                               BA: ${row[3]} <br/>
-                               Name: ${row[4]} <br/>
-                               Address: ${row[5]} <br/>
-                               DMA: ${row[6]} <br/>
-                               DMZ: ${row[7]} <br/>
-                               Latitude: ${row[9]} <br/>
-                               Longitude: ${row[10]} <br/>
-                               Coordinates Source: ${row[11]} <br>
-                            </p>
-                        ]]>
-                        </description>
-                        <Point>
-                            <coordinates>${row[10]},${row[9]}</coordinates>
-                        </Point>
-                    </Placemark>
+        return """
+            <Placemark>
+                <name>${row[0]}</name>
+                <description><![CDATA[
+                    <p>CAN: ${row[0]}<br/>
+                       Meter Code: ${row[1]}<br/>
+                       MRU: ${row[2]}<br/>
+                       BA: ${row[3]}<br/>
+                       Name: ${row[4]}<br/>
+                       Address: ${row[5]}<br/>
+                       DMA: ${row[6]}<br/>
+                       DMZ: ${row[7]}<br/>
+                       Latitude: ${row[9]}<br/>
+                       Longitude: ${row[10]}<br/>
+                       Coordinates Source: ${row[11]}</p>
+                ]]></description>
+                <Point><coordinates>${row[10]},${row[9]}</coordinates></Point>
+            </Placemark>
         """.trimIndent()
-
-        return placeMark
     }
 }

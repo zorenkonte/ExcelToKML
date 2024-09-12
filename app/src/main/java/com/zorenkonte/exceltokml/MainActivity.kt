@@ -1,6 +1,7 @@
 package com.zorenkonte.exceltokml
 
 import android.Manifest
+import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
@@ -15,37 +16,12 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.DrawerValue
-import androidx.compose.material3.LinearProgressIndicator
-import androidx.compose.material3.ModalDrawerSheet
-import androidx.compose.material3.ModalNavigationDrawer
-import androidx.compose.material3.NavigationDrawerItem
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
-import androidx.compose.material3.rememberDrawerState
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
 import androidx.compose.runtime.livedata.observeAsState
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -58,6 +34,7 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.zorenkonte.exceltokml.ui.theme.ExcelToKMLTheme
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
@@ -90,7 +67,6 @@ fun ExcelFilePicker(viewModel: ExcelViewModel, onFileSelected: (Uri?) -> Unit) {
     val progress by viewModel.progress.observeAsState(0)
     val data by viewModel.data.observeAsState(emptyList())
     val conversionStarted = remember { mutableStateOf(false) }
-
     val animatedProgress by animateFloatAsState(
         targetValue = progress / 100f, animationSpec = tween(durationMillis = 500), label = ""
     )
@@ -103,7 +79,7 @@ fun ExcelFilePicker(viewModel: ExcelViewModel, onFileSelected: (Uri?) -> Unit) {
     val filePickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.OpenDocument()
     ) { uri: Uri? ->
-        if (uri != null) {
+        uri?.let {
             viewModel.readExcelFile(context, uri)
             conversionStarted.value = true
         }
@@ -120,9 +96,38 @@ fun ExcelFilePicker(viewModel: ExcelViewModel, onFileSelected: (Uri?) -> Unit) {
         }
     }
 
-    Box(
-        modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center
-    ) {
+    ExcelFilePickerUI(
+        conversionStarted = conversionStarted,
+        progress = progress,
+        data = data,
+        animatedProgress = animatedProgress,
+        showDialog = showDialog,
+        onFileClick = {
+            handleFileClick(
+                context = context,
+                viewModel = viewModel,
+                filePickerLauncher = filePickerLauncher,
+                permissionLauncher = permissionLauncher,
+                excelMimeTypes = excelMimeTypes
+            )
+        },
+        onKMLClick = {
+            handleKMLClick(context, viewModel, data)
+        }
+    )
+}
+
+@Composable
+fun ExcelFilePickerUI(
+    conversionStarted: MutableState<Boolean>,
+    progress: Int,
+    data: List<List<String>>,
+    animatedProgress: Float,
+    showDialog: MutableState<Boolean>,
+    onFileClick: () -> Unit,
+    onKMLClick: () -> Unit
+) {
+    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
             if (conversionStarted.value && progress == 0) {
                 CircularProgressIndicator()
@@ -139,50 +144,16 @@ fun ExcelFilePicker(viewModel: ExcelViewModel, onFileSelected: (Uri?) -> Unit) {
                 )
             }
 
-            Row(
-                verticalAlignment = Alignment.CenterVertically
-            ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
                 if ((!conversionStarted.value && progress == 0) || progress == 100) {
-                    Button(onClick = {
-                        viewModel.resetProgress()
-                        conversionStarted.value = false
-                        val permission = getRequiredPermission()
-                        when (PackageManager.PERMISSION_GRANTED) {
-                            ContextCompat.checkSelfPermission(context, permission) -> {
-                                filePickerLauncher.launch(excelMimeTypes)
-                            }
-
-                            else -> {
-                                permissionLauncher.launch(permission)
-                            }
-                        }
-                    }) {
+                    Button(onClick = { onFileClick() }) {
                         Text(text = if (data.isNotEmpty()) "Convert Again" else "Convert")
                     }
                 }
 
-                if (data.isNotEmpty() && !(conversionStarted.value && progress == 0) && progress !in 1..99) {
+                if (data.isNotEmpty() && progress == 100) {
                     Spacer(modifier = Modifier.width(16.dp))
-                    Button(onClick = {
-                        val kmlUri = viewModel.convertToKML(data, context)
-                        kmlUri?.let {
-                            val intent = Intent(Intent.ACTION_VIEW).apply {
-                                setDataAndType(it, "application/*")
-                                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                            }
-                            val chooser = Intent.createChooser(intent, "Open KML file with")
-                            if (intent.resolveActivity(context.packageManager) != null) {
-                                context.startActivity(chooser)
-                            } else {
-                                // Handle the case where no application can handle the intent
-                                Toast.makeText(
-                                    context,
-                                    "No application found to open KML file",
-                                    Toast.LENGTH_SHORT
-                                ).show()
-                            }
-                        }
-                    }) {
+                    Button(onClick = { onKMLClick() }) {
                         Text(text = "Open KML")
                     }
                 }
@@ -190,33 +161,82 @@ fun ExcelFilePicker(viewModel: ExcelViewModel, onFileSelected: (Uri?) -> Unit) {
 
             LazyColumn {
                 items(data) { row ->
-                    Card(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(8.dp),
-                        elevation = CardDefaults.cardElevation(2.dp)
-                    ) {
-                        Column(modifier = Modifier.padding(16.dp)) {
-                            Text(text = "CAN: ${row[0]}")
-                            Text(text = "Name: ${row[4]}")
-                            Text(text = "Address: ${row[5]}")
-                            Text(text = "Street: ${row[6]}")
-                            Text(text = "Location: ${row[10]}, ${row[9]}")
-                        }
-                    }
+                    DisplayRow(row)
                 }
             }
 
             if (showDialog.value) {
-                AlertDialog(onDismissRequest = { showDialog.value = false },
-                    title = { Text(text = "Permission Denied") },
-                    text = { Text(text = "Permission to read external storage is required to select an Excel file.") },
-                    confirmButton = {
-                        Button(onClick = { showDialog.value = false }) {
-                            Text("OK")
-                        }
-                    })
+                PermissionDialog { showDialog.value = false }
             }
+        }
+    }
+}
+
+@Composable
+fun DisplayRow(row: List<String>) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(8.dp),
+        elevation = CardDefaults.cardElevation(2.dp)
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Text(text = "CAN: ${row[0]}")
+            Text(text = "Name: ${row[4]}")
+            Text(text = "Address: ${row[5]}")
+            Text(text = "Street: ${row[6]}")
+            Text(text = "Location: ${row[10]}, ${row[9]}")
+        }
+    }
+}
+
+@Composable
+fun PermissionDialog(onDismiss: () -> Unit) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(text = "Permission Denied") },
+        text = { Text(text = "Permission to read external storage is required to select an Excel file.") },
+        confirmButton = {
+            Button(onClick = onDismiss) {
+                Text("OK")
+            }
+        }
+    )
+}
+
+fun handleFileClick(
+    context: Context,
+    viewModel: ExcelViewModel,
+    filePickerLauncher: androidx.activity.compose.ManagedActivityResultLauncher<Array<String>, Uri?>,
+    permissionLauncher: androidx.activity.compose.ManagedActivityResultLauncher<String, Boolean>,
+    excelMimeTypes: Array<String>
+) {
+    viewModel.resetProgress()
+    val permission = getRequiredPermission()
+    if (ContextCompat.checkSelfPermission(
+            context,
+            permission
+        ) == PackageManager.PERMISSION_GRANTED
+    ) {
+        filePickerLauncher.launch(excelMimeTypes)
+    } else {
+        permissionLauncher.launch(permission)
+    }
+}
+
+fun handleKMLClick(context: Context, viewModel: ExcelViewModel, data: List<List<String>>) {
+    val kmlUri = viewModel.convertToKML(data, context)
+    kmlUri?.let {
+        val intent = Intent(Intent.ACTION_VIEW).apply {
+            setDataAndType(it, "application/*")
+            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        }
+        val chooser = Intent.createChooser(intent, "Open KML file with")
+        if (intent.resolveActivity(context.packageManager) != null) {
+            context.startActivity(chooser)
+        } else {
+            Toast.makeText(context, "No application found to open KML file", Toast.LENGTH_SHORT)
+                .show()
         }
     }
 }
@@ -236,24 +256,45 @@ fun MainScreen(viewModel: ExcelViewModel) {
     val scope = rememberCoroutineScope()
     val navController = rememberNavController()
 
-    ModalNavigationDrawer(drawerState = drawerState, drawerContent = {
-        ModalDrawerSheet {
-            NavigationDrawerItem(label = { Text("Home") }, selected = false, onClick = {
-                scope.launch { drawerState.close() }
-                navController.navigate("home")
-            })
-            NavigationDrawerItem(label = { Text("Credits") }, selected = false, onClick = {
-                scope.launch { drawerState.close() }
-                navController.navigate("credits")
-            })
+    ModalNavigationDrawer(
+        drawerState = drawerState,
+        drawerContent = {
+            DrawerContent(navController, drawerState, scope)
         }
-    }) {
+    ) {
         NavHost(navController, startDestination = "home") {
             composable("home") { ExcelFilePicker(viewModel) { } }
             composable("credits") { CreditsScreen() }
         }
     }
 }
+
+@Composable
+fun DrawerContent(
+    navController: androidx.navigation.NavHostController,
+    drawerState: DrawerState,
+    scope: CoroutineScope
+) {
+    ModalDrawerSheet {
+        NavigationDrawerItem(
+            label = { Text("Home") },
+            selected = false,
+            onClick = {
+                scope.launch { drawerState.close() }
+                navController.navigate("home")
+            }
+        )
+        NavigationDrawerItem(
+            label = { Text("Credits") },
+            selected = false,
+            onClick = {
+                scope.launch { drawerState.close() }
+                navController.navigate("credits")
+            }
+        )
+    }
+}
+
 
 @Composable
 fun CreditsScreen() {
