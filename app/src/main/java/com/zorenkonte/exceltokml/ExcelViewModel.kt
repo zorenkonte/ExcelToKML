@@ -11,10 +11,9 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import org.apache.poi.ss.usermodel.DataFormatter
 import org.apache.poi.ss.usermodel.WorkbookFactory
-import java.io.BufferedInputStream
-import java.io.File
-import java.io.FileOutputStream
-import java.io.InputStream
+import java.io.*
+import java.util.zip.ZipEntry
+import java.util.zip.ZipOutputStream
 
 class ExcelViewModel : ViewModel() {
     private val _progress = MutableLiveData<Int>()
@@ -26,16 +25,25 @@ class ExcelViewModel : ViewModel() {
     fun readExcelFile(context: Context, uri: Uri) {
         viewModelScope.launch(Dispatchers.IO) {
             val inputStream: InputStream? = context.contentResolver.openInputStream(uri)
-            val formatter = DataFormatter()
+            val formatter = DataFormatter() // Format cell values (including empty cells)
             val rows = mutableListOf<List<String>>()
 
             inputStream.use { stream ->
                 val bufferedStream = BufferedInputStream(stream)
-                val sheet = WorkbookFactory.create(bufferedStream).getSheetAt(0)
+                val workbook = WorkbookFactory.create(bufferedStream)
+                val sheet = workbook.getSheetAt(0)
                 val totalRows = sheet.physicalNumberOfRows - 1
 
+                // Iterate over each row
                 sheet.drop(1).forEachIndexed { rowIndex, row ->
-                    rows.add(row.map { formatter.formatCellValue(it) })
+                    val rowData = mutableListOf<String>()
+                    // Ensure that we process all cells, including empty ones
+                    for (cellIndex in 0 until row.lastCellNum) {
+                        val cell = row.getCell(cellIndex) // Get cell at this index
+                        val cellValue = formatter.formatCellValue(cell) // Format the cell value
+                        rowData.add(cellValue) // Add the value (even if it's empty)
+                    }
+                    rows.add(rowData)
                     updateProgress(rowIndex, totalRows)
                 }
             }
@@ -43,6 +51,7 @@ class ExcelViewModel : ViewModel() {
             _data.postValue(rows)
         }
     }
+
 
     private fun updateProgress(rowIndex: Int, totalRows: Int) {
         _progress.postValue((rowIndex + 1) * 100 / totalRows)
@@ -53,24 +62,43 @@ class ExcelViewModel : ViewModel() {
     }
 
     fun convertToKML(data: List<List<String>>, context: Context): Uri? {
-        val kmlContent = buildKML(data)
-        return saveKMLFile(kmlContent, context)
+        val kmlFile = writeKMLToStream(data, context) // Write KML progressively
+        return kmlFile?.let { compressToKMZ(it, context) } // Compress to KMZ after writing
     }
 
-    private fun buildKML(data: List<List<String>>): String {
-        return buildString {
-            append("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n")
-            append("<kml xmlns=\"http://www.opengis.net/kml/2.2\">\n<Document>\n")
-            data.drop(1).forEach { append(createPlaceMark(it)) }
-            append("</Document>\n</kml>\n")
+    private fun writeKMLToStream(data: List<List<String>>, context: Context): File? {
+        return try {
+            val file = File(context.cacheDir, "output.kml")
+            BufferedWriter(FileWriter(file)).use { writer ->
+                writer.write("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n")
+                writer.write("<kml xmlns=\"http://www.opengis.net/kml/2.2\">\n")
+                writer.write("<Document>\n")
+
+                data.drop(1).forEach { row ->
+                    writer.write(createPlaceMark(row)) // Write each placemark in chunks
+                }
+
+                writer.write("</Document>\n")
+                writer.write("</kml>\n")
+            }
+            file
+        } catch (e: Exception) {
+            e.printStackTrace()
+            null
         }
     }
 
-    private fun saveKMLFile(kmlContent: String, context: Context): Uri? {
+    private fun compressToKMZ(kmlFile: File, context: Context): Uri? {
         return try {
-            val file = File(context.cacheDir, "output.kml")
-            FileOutputStream(file).use { it.write(kmlContent.toByteArray()) }
-            FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
+            val kmzFile = File(context.cacheDir, "output.kmz")
+            ZipOutputStream(FileOutputStream(kmzFile)).use { zos ->
+                zos.putNextEntry(ZipEntry(kmlFile.name)) // Add KML to KMZ
+                FileInputStream(kmlFile).use { fis ->
+                    fis.copyTo(zos) // Stream KML content to KMZ
+                }
+                zos.closeEntry() // Finish entry
+            }
+            FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", kmzFile)
         } catch (e: Exception) {
             e.printStackTrace()
             null
