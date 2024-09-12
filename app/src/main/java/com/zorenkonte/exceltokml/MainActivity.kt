@@ -111,7 +111,8 @@ fun ExcelFilePicker(viewModel: ExcelViewModel, onFileSelected: (Uri?) -> Unit) {
                 viewModel = viewModel,
                 filePickerLauncher = filePickerLauncher,
                 permissionLauncher = permissionLauncher,
-                excelMimeTypes = excelMimeTypes
+                excelMimeTypes = excelMimeTypes,
+                conversionStarted = conversionStarted // Pass the conversionStarted state
             )
         },
         onKMLClick = {
@@ -154,7 +155,7 @@ fun ExcelFilePickerUI(
                     }
                 }
 
-                if (data.isNotEmpty() && progress == 100) {
+                if (data.isNotEmpty() && !(conversionStarted.value && progress == 0) && progress !in 1..99) {
                     Spacer(modifier = Modifier.width(16.dp))
                     Button(onClick = { onKMLClick() }) {
                         Text(text = "Open KML")
@@ -212,9 +213,11 @@ fun handleFileClick(
     viewModel: ExcelViewModel,
     filePickerLauncher: androidx.activity.compose.ManagedActivityResultLauncher<Array<String>, Uri?>,
     permissionLauncher: androidx.activity.compose.ManagedActivityResultLauncher<String, Boolean>,
-    excelMimeTypes: Array<String>
+    excelMimeTypes: Array<String>,
+    conversionStarted: MutableState<Boolean>
 ) {
     viewModel.resetProgress()
+    conversionStarted.value = false // Reset the conversionStarted state
     val permission = getRequiredPermission()
     if (ContextCompat.checkSelfPermission(
             context,
