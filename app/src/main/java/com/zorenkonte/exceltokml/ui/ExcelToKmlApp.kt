@@ -19,9 +19,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.SolidColor
-import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavHostController
@@ -65,7 +63,7 @@ fun ExcelToKmlApp(viewModel: ExcelViewModel) {
                     navigationIcon = {
                         IconButton(onClick = { scope.launch { drawerState.open() } }) {
                             Icon(
-                                imageVector = MenuIcon,
+                                painter = painterResource(R.drawable.ic_menu),
                                 contentDescription = "Open navigation drawer"
                             )
                         }
@@ -115,26 +113,3 @@ private fun AppDrawer(
         }
     }
 }
-
-// Hamburger ("menu") icon defined inline so the app does not depend on the deprecated
-// androidx.compose.material:material-icons artifacts, which are no longer a transitive
-// dependency of material3 on the Compose 1.12 line. The fill color is irrelevant because
-// Icon tints the vector with the current content color.
-private val MenuIcon: ImageVector =
-    ImageVector.Builder(
-        name = "Menu",
-        defaultWidth = 24.dp,
-        defaultHeight = 24.dp,
-        viewportWidth = 24f,
-        viewportHeight = 24f
-    ).apply {
-        listOf(5f, 11f, 17f).forEach { top ->
-            path(fill = SolidColor(Color.White)) {
-                moveTo(3f, top)
-                lineTo(21f, top)
-                lineTo(21f, top + 2f)
-                lineTo(3f, top + 2f)
-                close()
-            }
-        }
-    }.build()
