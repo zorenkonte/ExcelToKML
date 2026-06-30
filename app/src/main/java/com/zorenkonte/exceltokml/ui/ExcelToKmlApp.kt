@@ -3,10 +3,6 @@
 package com.zorenkonte.exceltokml.ui
 
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Home
-import androidx.compose.material.icons.filled.Info
-import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material3.DrawerState
 import androidx.compose.material3.DrawerValue
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -23,7 +19,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavHostController
@@ -38,11 +34,10 @@ import kotlinx.coroutines.launch
 
 private enum class Destination(
     val route: String,
-    val label: String,
-    val icon: ImageVector
+    val label: String
 ) {
-    HOME("home", "Home", Icons.Default.Home),
-    CREDITS("credits", "Credits", Icons.Default.Info)
+    HOME("home", "Home"),
+    CREDITS("credits", "Credits")
 }
 
 @Composable
@@ -68,7 +63,7 @@ fun ExcelToKmlApp(viewModel: ExcelViewModel) {
                     navigationIcon = {
                         IconButton(onClick = { scope.launch { drawerState.open() } }) {
                             Icon(
-                                imageVector = Icons.Default.Menu,
+                                painter = painterResource(R.drawable.ic_menu),
                                 contentDescription = "Open navigation drawer"
                             )
                         }
@@ -100,7 +95,6 @@ private fun AppDrawer(
     ModalDrawerSheet {
         Destination.entries.forEach { destination ->
             NavigationDrawerItem(
-                icon = { Icon(destination.icon, contentDescription = null) },
                 label = { Text(destination.label) },
                 selected = currentRoute == destination.route,
                 onClick = {

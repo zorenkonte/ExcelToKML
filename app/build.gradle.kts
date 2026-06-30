@@ -1,6 +1,7 @@
 plugins {
+    // AGP 9 has built-in Kotlin support, so the org.jetbrains.kotlin.android plugin
+    // must NOT be applied. The Compose Compiler plugin is still required.
     alias(libs.plugins.android.application)
-    alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
 }
 
@@ -44,13 +45,8 @@ android {
     }
 }
 
-// AGP 9 removed the `android { kotlinOptions { } }` DSL; configure the Kotlin JVM target
-// through the Kotlin Gradle plugin instead.
-kotlin {
-    compilerOptions {
-        jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17)
-    }
-}
+// With AGP 9 built-in Kotlin, the Kotlin jvmTarget defaults to
+// android.compileOptions.targetCompatibility (17 above), so no extra config is needed.
 
 dependencies {
 
