@@ -1,12 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:tools="http://schemas.android.com/tools"
-    package="com.zorenkonte.exceltokml">
+    xmlns:tools="http://schemas.android.com/tools">
 
-    <!-- Permissions -->
-    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"
-        android:maxSdkVersion="32" />
-    <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
+    <!--
+      No storage permissions are required: files are chosen through the Storage
+      Access Framework (ACTION_OPEN_DOCUMENT), which grants per-URI read access.
+    -->
 
     <application
         android:allowBackup="true"
